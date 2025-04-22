@@ -1,0 +1,14 @@
+let alertData = SecurityAlert
+| where ProviderName == "MDATP"
+| where AlertName has "Brute Force" and DeviceName == ""
+| extend Account = tostring(parse_json(Entities)[0].Name), IP = tostring(parse_json(Entities)[1].Address)
+| project TimeGenerated, AlertName, CompromisedEntity, Account, IP;
+
+let signInData = AADNonInteractiveUserSignInLogs
+| where ResultType != 0
+| project SignInTime = TimeGenerated, UserPrincipalName, IPAddress, DeviceDetail;
+
+alertData
+| join kind=inner (signInData) on $left.Account == $right.UserPrincipalName, $left.IP == $right.IPAddress
+| project TimeGenerated, AlertName, Account, IP, DeviceDetail, SignInTime, CompromisedEntity
+| sort by TimeGenerated desc
